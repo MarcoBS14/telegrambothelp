@@ -11,11 +11,19 @@ from telegram.ext import (
 )
 from stripe_client import cancelar_suscripcion_por_customer_id
 
+# Cargar variables de entorno
 load_dotenv()
 TOKEN = os.getenv("BOT_TOKEN")
 ADMIN_CHAT_ID = 6130272246
+GRUPO_CHAT_ID = -4978014065  # Asegúrate de que esté correcto
 
-# Estado temporal
+# Diccionario temporal de usuario → customer_id
+usuarios = {
+    123456789: "cus_abc123def456",  # Ejemplo: reemplazar con IDs reales
+    # user_id: customer_id
+}
+
+# Estado temporal de preguntas
 pending_question = {}
 
 def main_menu():
@@ -32,7 +40,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def menu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     user_id = query.from_user.id
-    chat_id = query.message.chat_id
+    chat_id = query.message.chat.id  # ← CORREGIDO
 
     await query.answer()
 
@@ -45,7 +53,10 @@ async def menu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         success = cancelar_suscripcion_por_customer_id(customer_id)
         if success:
             await query.edit_message_text("✅ Tu suscripción fue cancelada. Ya no se te harán más cargos.")
-            await context.bot.ban_chat_member(chat_id=GRUPO_CHAT_ID, user_id=user_id)
+            try:
+                await context.bot.ban_chat_member(chat_id=GRUPO_CHAT_ID, user_id=user_id)
+            except Exception as e:
+                await context.bot.send_message(chat_id=ADMIN_CHAT_ID, text=f"⚠️ Error al expulsar al usuario {user_id}: {e}")
         else:
             await query.edit_message_text("⚠️ Hubo un problema al cancelar. Intenta más tarde.")
     
